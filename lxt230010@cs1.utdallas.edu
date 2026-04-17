@@ -4,7 +4,7 @@ import random
 from queue import Queue
 
 num_tellers = 3
-num_customers = 50
+num_customers = 15
 
 door_sem = threading.Semaphore(2)
 manager_sem = threading.Semaphore(1)
