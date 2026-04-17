@@ -19,3 +19,17 @@ semaphores
 
 4/16/2026 00:11
 Ok I have coded a base interaction between the teller and customer threads. What I need to do next is add transaction logic, bank opening/closing, increase the number of customers, etc.
+
+4/17/2026 18:38
+Goals:
+- add transaction logic
+- add bank opening/closing events
+
+4/17/2026 22:53
+Accomplished:
+- adding transactions
+- add back opening/closing events
+
+Next:
+- see if it works right with proper number of customers
+- double check that my code meets all the requirements

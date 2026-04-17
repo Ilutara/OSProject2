@@ -23,7 +23,7 @@ customer_queue = Queue()
 customers_served_lock = threading.Lock()
 customers_served = 0
 
-def print_log(thread_type, thread_id, other_type=None, other_id=None, message=""):
+def log(thread_type, thread_id, other_type=None, other_id=None, message=""):
     with print_lock:
         if other_type and other_id is not None:
             print(f"{thread_type} {thread_id} [{other_type} {other_id}]: {message}")
@@ -35,7 +35,7 @@ def teller_thread(teller_id):
     
     with teller_ready_lock:
         teller_ready_count += 1
-        print_log("Teller", teller_id, message="ready to serve")
+        log("Teller", teller_id, message="ready to serve")
         if teller_ready_count == num_tellers:
             bank_open.set()
     
@@ -54,9 +54,30 @@ def teller_thread(teller_id):
         events = customer_events[customer_id]
         events['teller_ready'].set()
         
+        events['transaction_given'].wait()
+        events['transaction_given'].clear()
+
+        transaction_type = events['transaction_type']
+
+        if transaction_type == "WITHDRAWAL":
+            log("Teller", teller_id, "Customer", customer_id, "goes to the manager")
+            manager_sem.acquire()
+            log("Teller", teller_id, "Customer", customer_id, "getting permission from manager")
+            time.sleep(random.uniform(0.005, 0.030))
+            log("Teller", teller_id, "Customer", customer_id, "got permission from manager")
+            manager_sem.release()
+
+
+        log("Teller", teller_id, "Customer", customer_id, "goes to the safe")
         safe_sem.acquire()
+        log("Teller", teller_id, "Customer", customer_id, "enters safe")
         time.sleep(random.uniform(0.010, 0.050))
+        log("Teller", teller_id, "Customer", customer_id, f"completes {transaction_type.lower()} in safe")
+        log("Teller", teller_id, "Customer", customer_id, "leaves safe")
         safe_sem.release()
+
+        log("Teller", teller_id, "Customer", customer_id, "informs customer transaction is complete")
+        events['transaction_complete'].set()
 
         events['customer_left'].wait()
         events['customer_left'].clear()
@@ -64,21 +85,27 @@ def teller_thread(teller_id):
 
 def customer_thread(customer_id):
     global customers_served
-    
+
+    transaction_type = random.choice(["DEPOSIT", "WITHDRAWAL"])
+    log("Customer", customer_id, message=f"decides to make a {transaction_type.lower()}")    
+
     wait_time = random.uniform(0, 0.100)
     time.sleep(wait_time)
     
     bank_open.wait()
     
     door_sem.acquire()
-    print_log("Customer", customer_id, message="enters bank through door")
+    log("Customer", customer_id, message="enters through door")
     door_sem.release()
     
-    print_log("Customer", customer_id, message="gets in line")
+    log("Customer", customer_id, message="is in line")
     
     customer_events[customer_id] = {
         'teller_ready': threading.Event(),
         'customer_left': threading.Event(),
+        'transaction_type': transaction_type,
+        'transaction_given': threading.Event(),
+        'transaction_complete': threading.Event()
     }
     
     customer_queue.put(customer_id)
@@ -88,12 +115,18 @@ def customer_thread(customer_id):
     
     teller_id = customer_teller_map[customer_id]
     
-    print_log("Customer", customer_id, "Teller", teller_id, "goes to teller")
+    log("Customer", customer_id, "Teller", teller_id, "goes to teller")
+    log("Customer", customer_id, "Teller", teller_id, f"requests {transaction_type.lower()}")
     
-    print_log("Customer", customer_id, "Teller", teller_id, "thanks teller and leaves")
+    customer_events[customer_id]['transaction_given'].set()
+
+    customer_events[customer_id]['transaction_complete'].wait()
+    customer_events[customer_id]['transaction_complete'].clear()
+
+    log("Customer", customer_id, "Teller", teller_id, "thanks teller and leaves")
     customer_events[customer_id]['customer_left'].set()
     
-    print_log("Customer", customer_id, message="leaves bank through door")
+    log("Customer", customer_id, message="leaves through door")
     
     with customers_served_lock:
         customers_served += 1
@@ -101,11 +134,18 @@ def customer_thread(customer_id):
 
 def main():
     teller_threads = []
+
+    print("START")
+    print("There are {num_tellers} tellers and {num_customers} customers")
+
     for i in range(num_tellers):
         t = threading.Thread(target=teller_thread, args=(i,))
         t.start()
         teller_threads.append(t)
     
+    bank_open.wait()
+    print("Bank open!")
+
     customer_threads = []
     for i in range(num_customers):
         t = threading.Thread(target=customer_thread, args=(i,))
@@ -118,6 +158,8 @@ def main():
     for t in teller_threads:
         t.join()
     
+    print("\nBank is now closed")
+    print(f"All {num_customers} customers have been served.")
     print("DONE")
 
 if __name__ == "__main__":
