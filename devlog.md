@@ -34,7 +34,7 @@ Next:
 - see if it works right with proper number of customers
 - double check that my code meets all the requirements
 
-4/17/2026
+4/17/2026 15:23
 Goals: 
 - check if it works on cs1/cs2 machines
 - change number of customers
@@ -42,3 +42,13 @@ Goals:
 Results:
 cs1/cs2 will not let me create a directory or write into files. Therefore I will make it run on my computer and resolve any issues as they come up in grading.
 
+4/17/2026 15:50
+Goals:
+- double check my code meets the requirements of the project
+- submit
+
+completed:
+- fixed minor f string bug
+- checked code
+
+ok now submit

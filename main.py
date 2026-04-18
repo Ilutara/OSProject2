@@ -53,6 +53,8 @@ def teller_thread(teller_id):
         
         events = customer_events[customer_id]
         events['teller_ready'].set()
+        log("Teller", teller_id, "Customer", customer_id, "asks for transaction")
+        events['teller_asked'].set()
         
         events['transaction_given'].wait()
         events['transaction_given'].clear()
@@ -90,7 +92,9 @@ def customer_thread(customer_id):
     log("Customer", customer_id, message=f"decides to make a {transaction_type.lower()}")    
 
     wait_time = random.uniform(0, 0.100)
+    log("Customer", customer_id, message="waiting to enter bank")
     time.sleep(wait_time)
+    log("Customer", customer_id, message="finished waiting")
     
     bank_open.wait()
     
@@ -105,7 +109,8 @@ def customer_thread(customer_id):
         'customer_left': threading.Event(),
         'transaction_type': transaction_type,
         'transaction_given': threading.Event(),
-        'transaction_complete': threading.Event()
+        'transaction_complete': threading.Event(),
+        'teller_asked': threading.Event()
     }
     
     customer_queue.put(customer_id)
@@ -115,7 +120,8 @@ def customer_thread(customer_id):
     
     teller_id = customer_teller_map[customer_id]
     
-    log("Customer", customer_id, "Teller", teller_id, "goes to teller")
+    log("Customer", customer_id, "Teller", teller_id, "goes to and introduces itself to teller")
+    customer_events[customer_id]['teller_asked'].wait()
     log("Customer", customer_id, "Teller", teller_id, f"requests {transaction_type.lower()}")
     
     customer_events[customer_id]['transaction_given'].set()
@@ -125,7 +131,7 @@ def customer_thread(customer_id):
 
     log("Customer", customer_id, "Teller", teller_id, "thanks teller and leaves")
     customer_events[customer_id]['customer_left'].set()
-    
+
     log("Customer", customer_id, message="leaves through door")
     
     with customers_served_lock:
@@ -136,7 +142,7 @@ def main():
     teller_threads = []
 
     print("START")
-    print("There are {num_tellers} tellers and {num_customers} customers")
+    print(f"There are {num_tellers} tellers and {num_customers} customers")
 
     for i in range(num_tellers):
         t = threading.Thread(target=teller_thread, args=(i,))
